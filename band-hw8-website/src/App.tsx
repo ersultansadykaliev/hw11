@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import './App.css'
 
-const API_URL = 'https://inai-col2.fishrungames.com'
+const API_URL = 'https://inai-col3.fishrungames.com'
 
 type Profile = {
   first_name: string
@@ -19,6 +19,7 @@ type User = {
 }
 
 type Choice = { value: string; label: string }
+type TokenResponse = { access: string; user?: User }
 
 const specializationChoices: Choice[] = [
   { value: 'vocals', label: 'Вокал' },
@@ -29,16 +30,52 @@ const specializationChoices: Choice[] = [
   { value: 'other', label: 'Другое' },
 ]
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+let accessToken: string | null = null
+
+function setAccessToken(token: string | null) {
+  accessToken = token
+}
+
+function getErrorMessage(body: unknown, status: number) {
+  if (body && typeof body === 'object') {
+    const values = Object.values(body)
+    const detail = 'detail' in body ? body.detail : values[0]
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail) && typeof detail[0] === 'string') return detail[0]
+  }
+  return `Ошибка ${status}`
+}
+
+async function refreshAccessToken() {
+  const response = await fetch(`${API_URL}/api/token/refresh/`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  const body = await response.json().catch(() => null) as TokenResponse | null
+  if (!response.ok || !body?.access) {
+    throw new Error(getErrorMessage(body, response.status))
+  }
+  setAccessToken(body.access)
+  return body.access
+}
+
+async function request<T>(path: string, options: RequestInit = {}, canRefresh = true): Promise<T> {
+  const headers = new Headers(options.headers)
+  if (!headers.has('Content-Type') && options.body) headers.set('Content-Type', 'application/json')
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers,
   })
+  if (response.status === 401 && canRefresh && path !== '/api/token/refresh/' && path !== '/api/login/' && path !== '/api/register/') {
+    await refreshAccessToken()
+    return request<T>(path, options, false)
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => null)
-    const message = body?.detail || Object.values(body || {})[0] || `Ошибка ${response.status}`
-    throw new Error(Array.isArray(message) ? message[0] : String(message))
+    throw new Error(getErrorMessage(body, response.status))
   }
   return response.status === 204 ? ({} as T) : response.json()
 }
@@ -55,8 +92,17 @@ function App() {
   const [profileError, setProfileError] = useState('')
 
   useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        await refreshAccessToken()
+        setUser(await request<User>('/api/profile/'))
+      } catch {
+        setAccessToken(null)
+      }
+    }
+
     Promise.all([
-      request<User>('/api/profile/').then(setUser).catch(() => undefined),
+      restoreSession(),
       request<Choice[]>('/api/specializations/').then(setChoices).catch(() => undefined),
     ]).finally(() => setLoading(false))
   }, [])
@@ -68,14 +114,15 @@ function App() {
     const form = new FormData(event.currentTarget)
     try {
       const path = authMode === 'login' ? '/api/login/' : '/api/register/'
-      const result = await request<User>(path, {
+      const result = await request<TokenResponse>(path, {
         method: 'POST',
         body: JSON.stringify({
           username: form.get('username'),
           password: form.get('password'),
         }),
       })
-      setUser(result)
+      setAccessToken(result.access)
+      setUser(result.user || await request<User>('/api/profile/'))
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Не удалось выполнить запрос')
     } finally {
@@ -111,10 +158,12 @@ function App() {
   const logout = async () => {
     try {
       await request('/api/logout/', { method: 'POST' })
-      setUser(null)
-      setAuthMode('login')
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : 'Не удалось выйти')
+    } finally {
+      setAccessToken(null)
+      setUser(null)
+      setAuthMode('login')
     }
   }
 

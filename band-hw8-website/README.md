@@ -19,10 +19,13 @@ Production-сборка проверяется командами `npm run build
 
 ## API и деплой
 
-Приложение использует `https://inai-col2.fishrungames.com` и cookie-сессию
-эндпоинтов `/api/register/`, `/api/login/`, `/api/logout/`, `/api/profile/`
-и `/api/specializations/`. Для работы авторизации на опубликованном сайте
-backend должен разрешать CORS-запросы с домена GitHub Pages и credentials.
+Приложение использует `https://inai-col3.fishrungames.com`. Регистрация и вход
+на эндпоинтах `/api/register/` и `/api/login/` возвращают access JWT, который
+передаётся в заголовке `Authorization: Bearer`. Refresh JWT хранится backend в
+HttpOnly cookie и используется через `/api/token/refresh/` для восстановления
+сессии и автоматического обновления access-токена. Выход выполняется через
+`/api/logout/`. Backend должен разрешать CORS-запросы с домена GitHub Pages
+с credentials.
 
 Workflow `.github/workflows/deploy.yml` собирает проект и публикует папку `dist`
 через GitHub Pages при push в `main`. В настройках репозитория выберите
