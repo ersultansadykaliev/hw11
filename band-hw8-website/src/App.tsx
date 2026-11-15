@@ -7,10 +7,7 @@ const CHAT_URL = 'wss://inai-col3.fishrungames.com/chat/'
 
 type Profile = {
   first_name: string
-  specialization: string
-  specialization_display: string
   bio: string
-  fee: string
 }
 
 type User = {
@@ -19,7 +16,6 @@ type User = {
   profile: Profile
 }
 
-type Choice = { value: string; label: string }
 type TokenResponse = { access: string; user?: User }
 type ChatMessage = {
   sender: string
@@ -29,15 +25,6 @@ type ChatMessage = {
 type ChatEvent =
   | { type: 'AUTH_SUCCESS'; payload: { username: string } }
   | { type: 'NEW_MESSAGE'; payload: ChatMessage }
-
-const specializationChoices: Choice[] = [
-  { value: 'vocals', label: 'Вокал' },
-  { value: 'guitar', label: 'Гитара' },
-  { value: 'bass', label: 'Бас-гитара' },
-  { value: 'drums', label: 'Ударные' },
-  { value: 'keys', label: 'Клавишные' },
-  { value: 'other', label: 'Другое' },
-]
 
 let accessToken: string | null = null
 
@@ -91,7 +78,6 @@ async function request<T>(path: string, options: RequestInit = {}, canRefresh = 
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
-  const [choices, setChoices] = useState<Choice[]>(specializationChoices)
   const [loading, setLoading] = useState(true)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [authLoading, setAuthLoading] = useState(false)
@@ -117,7 +103,6 @@ function App() {
 
     Promise.all([
       restoreSession(),
-      request<Choice[]>('/api/specializations/').then(setChoices).catch(() => undefined),
     ]).finally(() => setLoading(false))
   }, [])
 
@@ -204,7 +189,6 @@ function App() {
         body: JSON.stringify({
           first_name: form.get('first_name'),
           bio: form.get('bio'),
-          specialization: form.get('specialization'),
         }),
       })
       setUser(updated)
@@ -258,8 +242,7 @@ function App() {
             <div className="profile-header"><div><p className="eyebrow">Личный кабинет</p><h1>Мой профиль</h1><p className="profile-intro">Просматривайте и редактируйте данные своего профиля.</p></div><button className="outline-button" onClick={logout}>Выйти</button></div>
             <form className="profile-form" onSubmit={saveProfile}>
               <label>Имя / псевдоним<input name="first_name" defaultValue={user.profile?.first_name} placeholder="Как тебя зовут?" maxLength={100} /></label>
-              <label>Твоя роль<select name="specialization" defaultValue={user.profile?.specialization || 'other'}>{choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}</select></label>
-              <label className="full-field">О себе<textarea name="bio" defaultValue={user.profile?.bio} placeholder="Расскажи о себе и своей музыке..." rows={4} /></label>
+              <label className="full-field">О себе<textarea name="bio" defaultValue={user.profile?.bio} placeholder="Расскажи о себе..." rows={4} /></label>
               <div className="form-actions"><button className="primary-button" type="submit" disabled={profileLoading}>{profileLoading ? 'Сохраняем...' : 'Сохранить изменения'} <span>↗</span></button>{profileMessage && <span className="success-message">{profileMessage}</span>}{profileError && <span className="error-message">{profileError}</span>}</div>
             </form>
           </div>
@@ -276,7 +259,7 @@ function App() {
       ) : (
         <section className="auth-section" id="auth">
           <div className="auth-grid">
-            <div><p className="eyebrow">Профиль музыканта</p><h1>Добро<br /><em>пожаловать.</em></h1><p>Войдите или зарегистрируйтесь, чтобы управлять своим профилем.</p></div>
+            <div><p className="eyebrow">Профиль пользователя</p><h1>Добро<br /><em>пожаловать.</em></h1><p>Войдите или зарегистрируйтесь, чтобы общаться в групповом чате.</p></div>
             <div className="auth-card">
               <div className="auth-tabs"><button className={authMode === 'login' ? 'active' : ''} onClick={() => { setAuthMode('login'); setAuthError('') }}>Войти</button><button className={authMode === 'register' ? 'active' : ''} onClick={() => { setAuthMode('register'); setAuthError('') }}>Регистрация</button></div>
               <form onSubmit={submitAuth}><label>Логин<input name="username" required autoComplete="username" placeholder="your_name" /></label><label>Пароль<input name="password" required minLength={6} type="password" autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} placeholder="••••••••" /></label>{authError && <p className="error-message">{authError}</p>}<button className="primary-button form-submit" type="submit" disabled={authLoading}>{authLoading ? 'Подождите...' : authMode === 'login' ? 'Войти в кабинет' : 'Создать профиль'} <span>↗</span></button></form>
