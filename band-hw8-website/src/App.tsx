@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import './App.css'
 
 const API_URL = 'https://inai-col3.fishrungames.com'
+const CHAT_URL = 'wss://inai-col3.fishrungames.com/chat/'
 
 type Profile = {
   first_name: string
@@ -20,6 +21,14 @@ type User = {
 
 type Choice = { value: string; label: string }
 type TokenResponse = { access: string; user?: User }
+type ChatMessage = {
+  sender: string
+  text: string
+  timestamp: number
+}
+type ChatEvent =
+  | { type: 'AUTH_SUCCESS'; payload: { username: string } }
+  | { type: 'NEW_MESSAGE'; payload: ChatMessage }
 
 const specializationChoices: Choice[] = [
   { value: 'vocals', label: 'Вокал' },
@@ -90,6 +99,11 @@ function App() {
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileMessage, setProfileMessage] = useState('')
   const [profileError, setProfileError] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatText, setChatText] = useState('')
+  const [chatStatus, setChatStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
+  const [chatError, setChatError] = useState('')
+  const chatSocket = useRef<WebSocket | null>(null)
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -107,6 +121,50 @@ function App() {
     ]).finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    if (!user || !accessToken) return
+
+    const socket = new WebSocket(CHAT_URL)
+    chatSocket.current = socket
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({
+        type: 'AUTH',
+        payload: { token: accessToken },
+      }))
+    }
+
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data) as ChatEvent
+        if (message.type === 'AUTH_SUCCESS') {
+          setChatStatus('connected')
+          return
+        }
+        if (message.type === 'NEW_MESSAGE') {
+          setChatMessages((messages) => [...messages, message.payload])
+        }
+      } catch {
+        setChatError('Сервер прислал некорректный ответ')
+      }
+    }
+
+    socket.onerror = () => {
+      setChatStatus('error')
+      setChatError('Не удалось подключиться к чату')
+    }
+
+    socket.onclose = () => {
+      chatSocket.current = null
+      setChatStatus((status) => status === 'connected' ? 'error' : status)
+    }
+
+    return () => {
+      socket.close()
+      chatSocket.current = null
+    }
+  }, [user])
+
   const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setAuthLoading(true)
@@ -122,6 +180,9 @@ function App() {
         }),
       })
       setAccessToken(result.access)
+      setChatStatus('connecting')
+      setChatError('')
+      setChatMessages([])
       setUser(result.user || await request<User>('/api/profile/'))
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Не удалось выполнить запрос')
@@ -167,6 +228,18 @@ function App() {
     }
   }
 
+  const sendChatMessage = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const text = chatText.trim()
+    if (!text || chatSocket.current?.readyState !== WebSocket.OPEN || chatStatus !== 'connected') return
+
+    chatSocket.current.send(JSON.stringify({
+      type: 'CHAT_MESSAGE',
+      payload: { text },
+    }))
+    setChatText('')
+  }
+
   if (loading) {
     return <div className="loading-screen"><div className="loader-ring" /><p>Настраиваем звук<span>...</span></p></div>
   }
@@ -180,14 +253,25 @@ function App() {
       </header>
 
       {user ? (
-        <section className="profile-section" id="profile">
-          <div className="profile-header"><div><p className="eyebrow">Личный кабинет</p><h1>Мой профиль</h1><p className="profile-intro">Просматривайте и редактируйте данные своего профиля.</p></div><button className="outline-button" onClick={logout}>Выйти</button></div>
-          <form className="profile-form" onSubmit={saveProfile}>
-            <label>Имя / псевдоним<input name="first_name" defaultValue={user.profile?.first_name} placeholder="Как тебя зовут?" maxLength={100} /></label>
-            <label>Твоя роль<select name="specialization" defaultValue={user.profile?.specialization || 'other'}>{choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}</select></label>
-            <label className="full-field">О себе<textarea name="bio" defaultValue={user.profile?.bio} placeholder="Расскажи о себе и своей музыке..." rows={4} /></label>
-            <div className="form-actions"><button className="primary-button" type="submit" disabled={profileLoading}>{profileLoading ? 'Сохраняем...' : 'Сохранить изменения'} <span>↗</span></button>{profileMessage && <span className="success-message">{profileMessage}</span>}{profileError && <span className="error-message">{profileError}</span>}</div>
-          </form>
+        <section className="dashboard-section">
+          <div className="profile-section" id="profile">
+            <div className="profile-header"><div><p className="eyebrow">Личный кабинет</p><h1>Мой профиль</h1><p className="profile-intro">Просматривайте и редактируйте данные своего профиля.</p></div><button className="outline-button" onClick={logout}>Выйти</button></div>
+            <form className="profile-form" onSubmit={saveProfile}>
+              <label>Имя / псевдоним<input name="first_name" defaultValue={user.profile?.first_name} placeholder="Как тебя зовут?" maxLength={100} /></label>
+              <label>Твоя роль<select name="specialization" defaultValue={user.profile?.specialization || 'other'}>{choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}</select></label>
+              <label className="full-field">О себе<textarea name="bio" defaultValue={user.profile?.bio} placeholder="Расскажи о себе и своей музыке..." rows={4} /></label>
+              <div className="form-actions"><button className="primary-button" type="submit" disabled={profileLoading}>{profileLoading ? 'Сохраняем...' : 'Сохранить изменения'} <span>↗</span></button>{profileMessage && <span className="success-message">{profileMessage}</span>}{profileError && <span className="error-message">{profileError}</span>}</div>
+            </form>
+          </div>
+          <section className="chat-section" id="chat">
+            <div className="chat-header"><div><p className="eyebrow">Общий канал</p><h2>Групповой чат</h2></div><span className={`chat-status ${chatStatus}`}>{chatStatus === 'connected' ? 'В сети' : chatStatus === 'connecting' ? 'Подключение...' : 'Нет связи'}</span></div>
+            <div className="chat-messages" aria-live="polite">
+              {chatMessages.length === 0 && <p className="chat-empty">{chatStatus === 'connected' ? 'Здесь пока тихо. Напишите первым.' : 'Подключаемся к чату...'}</p>}
+              {chatMessages.map((message, index) => <article className="chat-message" key={`${message.timestamp}-${index}`}><div><strong>{message.sender}</strong><time>{new Date(message.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</time></div><p>{message.text}</p></article>)}
+            </div>
+            {chatError && <p className="error-message">{chatError}</p>}
+            <form className="chat-form" onSubmit={sendChatMessage}><input value={chatText} onChange={(event) => setChatText(event.target.value)} disabled={chatStatus !== 'connected'} placeholder="Напишите сообщение..." maxLength={1000} /><button className="primary-button" type="submit" disabled={chatStatus !== 'connected' || !chatText.trim()}>Отправить <span>↗</span></button></form>
+          </section>
         </section>
       ) : (
         <section className="auth-section" id="auth">
