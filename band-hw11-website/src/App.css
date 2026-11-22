@@ -1,0 +1,138 @@
+.app {
+  min-height: 100vh;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.status {
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #1f2630;
+  color: #cbd5e1;
+}
+
+.status.connected {
+  background: #143524;
+  color: #6ee7b7;
+}
+
+.status.error {
+  background: #3b181b;
+  color: #fca5a5;
+}
+
+.warning {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #2b2312;
+  color: #fcd34d;
+  font-size: 0.9rem;
+}
+
+.videos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  flex: 1;
+}
+
+.video-card {
+  position: relative;
+  background: #1a1f26;
+  border: 1px solid #2a313c;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-card video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #0b0e11;
+}
+
+.video-card .local-video {
+  transform: scaleX(-1);
+}
+
+.video-label {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  font-size: 0.85rem;
+  color: #f3f4f6;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.controls button {
+  padding: 10px 18px;
+  border: 1px solid #333c48;
+  border-radius: 8px;
+  background: #1f2630;
+  color: #f3f4f6;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.controls button:hover:not(:disabled) {
+  background: #2a3340;
+}
+
+.controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.controls button.off {
+  background: #3b181b;
+  border-color: #6b2429;
+  color: #fca5a5;
+}
+
+.controls button.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.controls button.primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+@media (max-width: 720px) {
+  .videos {
+    grid-template-columns: 1fr;
+  }
+}

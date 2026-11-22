@@ -23,14 +23,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: band-hw8-website/package-lock.json
+          cache-dependency-path: band-hw11-website/package-lock.json
       - run: npm ci
-        working-directory: band-hw8-website
+        working-directory: band-hw11-website
       - run: npm run build
-        working-directory: band-hw8-website
+        working-directory: band-hw11-website
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: band-hw8-website/dist
+          path: band-hw11-website/dist
 
   deploy:
     environment:
