@@ -1,34 +1,18 @@
-# Group Chat
+# Видеособеседование 1 на 1 (WebRTC)
 
-Веб-приложение на TypeScript. В приложении доступны:
-
-- регистрация и вход через API;
-- загрузочный экран при проверке сессии;
-- просмотр и редактирование профиля пользователя;
-- групповой чат по WebSocket для авторизованных пользователей;
-- выход из системы;
-- адаптивная версия для мобильных устройств.
+Простое веб-приложение для видеозвонков 1 на 1 на базе WebRTC и WebSocket signaling-сервера `wss://inai-col3.fishrungames.com/signaling/`.
 
 ## Запуск
 
 ```bash
+cd band-hw11-website
 npm install
 npm run dev
 ```
 
-Production-сборка проверяется командами `npm run build` и `npm run lint`.
+Проверка сборки и линтера:
 
-## API и деплой
-
-Приложение использует ' https://inai-col3.fishrungames.com/api/docs '. Регистрация и вход
-на эндпоинтах `/api/register/` и `/api/login/` возвращают access JWT, который
-передаётся в заголовке `Authorization: Bearer`. Refresh JWT хранится backend в
-HttpOnly cookie и используется через `/api/token/refresh/` для восстановления
-сессии и автоматического обновления access-токена. Выход выполняется через
-`/api/logout/`. Backend должен разрешать CORS-запросы с домена GitHub Pages
-с credentials.
-
-
-Workflow `.github/workflows/deploy.yml` собирает проект и публикует папку `dist`
-через GitHub Pages при push в `main`. В настройках репозитория выберите
-**Settings → Pages → Source: GitHub Actions**.
+```bash
+npm run build
+npm run lint
+```
